@@ -418,3 +418,17 @@ npm run start
 
 4.  **数据库错误**:
     Viseron 可能会尝试连接 PostgreSQL。如果配置文件中未启用 PostgreSQL，它通常会使用默认设置或回退。如果报错，请检查 `config.yaml` 或安装并配置本地 PostgreSQL 服务。
+
+5.  **MJPEG 流 404 错误** (`GET /camera_name/mjpeg-stream 404`):
+    如果前端显示摄像头流 404 错误，需要修改 `frontend/vite.config.ts`，添加对摄像头流路径的代理支持。
+    在 `server.proxy` 配置中，确保包含以下规则：
+
+    ```typescript
+    "^/[A-Za-z0-9_]+/mjpeg-stream": {
+      target: `http://${env.VITE_PROXY_HOST ? env.VITE_PROXY_HOST : "localhost:8888"}`,
+      ...proxyOptions,
+    },
+    ```
+
+    注意：正则表达式不要以 `$` 结尾，这样才能匹配带查询参数的 URL（如 `?draw_objects=1`）。
+    修改后需要重启 Vite 开发服务器。
