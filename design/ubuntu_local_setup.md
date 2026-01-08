@@ -48,6 +48,7 @@ sudo apt install -y \
     gstreamer1.0-gtk3 \
     gstreamer1.0-qt5 \
     gstreamer1.0-pulseaudio \
+    libgirepository1.0-dev \
     nginx
 ```
 
@@ -111,12 +112,47 @@ mkdir -p config
 touch config/config.yaml
 ```
 
+
 **环境变量配置**:
 为了让程序知道配置文件在哪里，需要设置环境变量 `VISERON_CONFIG_DIR`。建议将其写入启动脚本或 `.env` 文件。
 
 ```bash
 export VISERON_CONFIG_DIR=$(pwd)/config
 ```
+
+### 2.4 数据库配置 (PostgreSQL)
+
+项目默认使用 PostgreSQL 存储数据。你需要在本地安装并运行 PostgreSQL 服务。
+
+**1. 启动 PostgreSQL 服务**
+确保 PostgreSQL 服务已启动：
+```bash
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+```
+
+**2. 创建数据库和用户**
+进入 PostgreSQL 命令行创建项目所需的数据库和用户：
+```bash
+sudo -u postgres psql
+
+# 在 psql 这里执行以下 SQL:
+CREATE USER viseron WITH PASSWORD 'viseron';
+CREATE DATABASE viseron OWNER viseron;
+\q
+```
+
+**3. 配置连接字符串**
+Viseron 使用环境变量 `POSTGRES_DATABASE_URL` 连接数据库。
+在运行项目前，需要导出该环境变量：
+
+```bash
+# 格式: postgresql://<user>:<password>@<host>:<port>/<database>
+export POSTGRES_DATABASE_URL="postgresql://viseron:viseron@localhost:5432/viseron"
+```
+
+建议将上述 export 命令也加入到你的启动脚本或环境变量配置文件中。
+
 
 ---
 
@@ -135,9 +171,65 @@ npm install
 
 ---
 
-## 4. 路由与反向代理 (Nginx) 配置说明
 
-这是本地原生运行最关键的部分。官方 Docker 镜像中将 Nginx 配置文件直接覆盖到系统中，但在本地开发时，我们需要创建一个适配当前路径的 Nginx 配置。
+### 2.5 Darknet 目标检测配置
+
+如果你的 `config.yaml` 启用了 `darknet` 组件，需要准备相应的模型文件。
+
+**1. 创建模型目录** (默认为 `/detectors/models/darknet/`)
+由于本地运行，我们可以将模型放在项目目录下，例如 `models/darknet`。
+
+```bash
+mkdir -p models/darknet
+```
+
+**2. 下载 YOLOv4-tiny 模型文件**
+Viseron 默认使用 YOLOv4-tiny。
+
+```bash
+cd models/darknet
+
+# 下载权重文件 (yolov4-tiny.weights)
+wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-tiny.weights -O default.weights
+
+# 下载配置文件 (yolov4-tiny.cfg)
+wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-tiny.cfg -O default.cfg
+
+# 下载标签文件 (coco.names)
+wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/data/coco.names -O coco.names
+```
+
+**3. 修改 `config.yaml` 配置**
+你需要在 `config.yaml` 中显式指定这些文件的路径，否则它会去寻找默认的 `/detectors/models/darknet/...` 路径。
+
+```yaml
+darknet:
+  object_detector:
+    model_path: /path/to/your/project/models/darknet/default.weights # 修改为绝对路径
+    model_config: /path/to/your/project/models/darknet/default.cfg   # 修改为绝对路径
+    label_path: /path/to/your/project/models/darknet/coco.names      # 修改为绝对路径
+    # ... 其他配置
+```
+
+**导出的环境变量**
+```
+export VISERON_CONFIG_DIR=/home/horky/projects/nvr/viseron/workspace/config
+export POSTGRES_DATABASE_URL="postgresql://viseron:viseron@localhost:5432/viseron"
+export VISERON_FFMPEG_PATH=/usr/bin/ffmpeg
+
+修改/usr/local/bin的权限: sudo chmod 777 /usr/local/bin
+```
+
+**错误排查**:
+1.  **`No section: 'net'`**: 通常是因为 `default.cfg` 文件内容为空、格式损坏或者路径错误，导致 OpenCV 无法解析网络结构。请确保 `wget` 下载成功且文件有内容。
+2.  **`No module named 'manager'`**: 这是一个 Python 路径问题。当 Viseron 启动子进程处理 Darknet 时，需要能够找到项目根目录下的 `manager.py`。
+    解决方法：在运行 Viseron 之前，将当前目录 (即项目根目录) 添加到 `PYTHONPATH`。
+
+    ```bash
+    export PYTHONPATH=$PYTHONPATH:$(pwd)
+    python3 -m viseron
+    ```
+
 
 ### 4.1 端口架构
 - **9999**: Viseron 后端 API 服务端口
@@ -231,7 +323,7 @@ http {
         # 如果你运行 npm run build，静态文件会生成在 dist 目录
         location / {
             # 修改为你的 frontend/dist 的绝对路径
-            root /path/to/your/project/nvr/viseron/frontend/dist;
+            root /home/horky/projects/nvr/viseron/frontend/dist;
             try_files $uri $uri.html $uri/ /index.html;
             index index.html;
         }
@@ -241,14 +333,33 @@ http {
 
 ---
 
-## 5. 启动完整的服务 (操作流程)
 
-为了在本地进行完整的开发调试，建议开启 3 到 4 个终端窗口分别运行以下服务。
+### 2.6 FFMPEG 路径配置(重要)
 
-### 终端 1: 运行 Go2RTC
+Viseron 在运行时会尝试为每个摄像头创建一个指向系统 `ffmpeg` 的符号链接（例如 `ffmpeg_camera1`），默认路径硬编码为 `/home/abc/bin/`（这是 Docker 容器内的路径）。
+在本地运行时，这个路径不存在且由于权限问题会导致运行失败。
+
+**解决方法**:
+我们需要创建一个软链接目录欺骗程序，或者修改源码（不推荐）。最简单的方法是创建该目录并将当前用户设为所有者。
+
 ```bash
-./go2rtc
+# 创建 Docker 镜像中使用的路径
+sudo mkdir -p /home/abc/bin
+
+# 将该目录的所有权移交给当前用户 (替换 'horky' 为你的实际用户名)
+sudo chown -R $USER:$USER /home/abc/bin
+
+# 将目录加到PATH中
+export PATH=$PATH:/home/abc/bin
+
+# 确保系统 ffmpeg 在PATH中，Viseron 会读取环境变量 VISERON_FFMPEG_PATH，
+# 如果未设置，它会尝试找系统 ffmpeg。
+# 为了保险，显式设置环境变量指向系统 ffmpeg
+export VISERON_FFMPEG_PATH=$(which ffmpeg)
 ```
+
+建议将 `export VISERON_FFMPEG_PATH=$(which ffmpeg)` 也加入到启动脚本中。
+
 
 ### 终端 2: 运行 Viseron 后端
 确保已激活虚拟环境并设置了环境变量。
@@ -275,9 +386,20 @@ sudo nginx -c $(pwd)/nginx_dev.conf
 cd frontend
 npm run start
 ```
-此时 Vite 会在 `http://localhost:5173` 启动。
-**关键说明**: 前端的 `vite.config.ts` 已配置了代理，它会将 `/api` 等请求转发给 `localhost:8888` (即你的 Nginx)。
-所以，即使你在开发前端，也**必须**保持 **终端 1, 2, 3** 的服务处于运行状态。
+
+**关键说明 - WebSocket 连接配置**:
+
+1. **启用 Debug 模式（重要）**：
+   为了让 Vite 开发服务器能够正常代理 WebSocket 请求，你需要在 `config.yaml` 中启用 webserver 的 debug 模式：
+
+   ```yaml
+   webserver:
+     debug: true
+   ```
+
+   这会禁用 Tornado 的跨域检查，允许来自 Vite 代理的 WebSocket 连接。
+
+无论哪种情况，都**必须**保持 **终端 1, 2, 3** 的服务处于运行状态。
 
 访问地址:
 - **前端开发**: `http://localhost:5173`
