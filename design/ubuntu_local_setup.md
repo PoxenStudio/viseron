@@ -216,8 +216,6 @@ darknet:
 export VISERON_CONFIG_DIR=/home/horky/projects/nvr/viseron/workspace/config
 export POSTGRES_DATABASE_URL="postgresql://viseron:viseron@localhost:5432/viseron"
 export VISERON_FFMPEG_PATH=/usr/bin/ffmpeg
-
-修改/usr/local/bin的权限: sudo chmod 777 /usr/local/bin
 ```
 
 **错误排查**:
