@@ -12,6 +12,7 @@ STREAM_FORMAT_MAP = {
     "rtsp": {"protocol": "rtsp", "timeout_option": ["-timeout", "5000000"]},
     "rtmp": {"protocol": "rtmp", "timeout_option": ["-rw_timeout", "5000000"]},
     "mjpeg": {"protocol": "http", "timeout_option": ["-timeout", "5000000"]},
+    "mp4": {"protocol": "file", "timeout_option": []},
 }
 
 RECORDER = "recorder"
@@ -93,6 +94,8 @@ DEFAULT_RTSP_TRANSPORT = "tcp"
 DEFAULT_VIDEO_FILTERS: list[str] = []
 DEFAULT_PIX_FMT = "nv12"
 DEFAULT_FRAME_TIMEOUT = 60
+
+LOCAL_HOST = "localhost"
 
 DESC_STREAM_FORMAT = "FFmpeg stream format."
 DESC_PROTOCOL = "Stream protocol."

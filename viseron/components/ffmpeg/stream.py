@@ -216,6 +216,10 @@ class Stream:
             else STREAM_FORMAT_MAP[stream_config[CONFIG_STREAM_FORMAT]]["protocol"]
         )
 
+        if protocol == "file":
+            # combine all CONFIG_INPUT_ARGS into a single path
+            return stream_config[CONFIG_PATH]
+
         return (
             f"{protocol}://"
             f"{auth}"

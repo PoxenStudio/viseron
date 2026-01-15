@@ -132,6 +132,7 @@ from .const import (
     DESC_WIDTH,
     FFMPEG_LOGLEVELS,
     HWACCEL_VAAPI,
+    LOCAL_HOST,
     STREAM_FORMAT_MAP,
 )
 from .recorder import Recorder
@@ -155,8 +156,16 @@ def get_default_hwaccel_args() -> list[str]:
 
 
 STREAM_SCEHMA_DICT = {
-    vol.Required(CONFIG_PATH, description=DESC_PATH): vol.All(str, vol.Length(min=1)),
-    vol.Required(CONFIG_PORT, description=DESC_PORT): vol.All(int, vol.Range(min=1)),
+    vol.Optional(
+        CONFIG_PATH,
+        default="/",
+        description=DESC_PATH
+    ): vol.All(str, vol.Length(min=1)),
+    vol.Optional(
+        CONFIG_PORT,
+        default=80,
+        description=DESC_PORT
+    ): vol.All(int, vol.Range(min=1)),
     vol.Optional(
         CONFIG_STREAM_FORMAT,
         default=DEFAULT_STREAM_FORMAT,
@@ -261,7 +270,7 @@ CAMERA_SCHEMA = BASE_CAMERA_CONFIG_SCHEMA.extend(STREAM_SCEHMA_DICT)
 
 CAMERA_SCHEMA = CAMERA_SCHEMA.extend(
     {
-        vol.Required(CONFIG_HOST, description=DESC_HOST): str,
+        vol.Optional(CONFIG_HOST, default=LOCAL_HOST, description=DESC_HOST): str,
         vol.Optional(
             CONFIG_USERNAME, default=DEFAULT_USERNAME, description=DESC_USERNAME
         ): Maybe(str),
