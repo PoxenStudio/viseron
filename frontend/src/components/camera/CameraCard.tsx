@@ -133,7 +133,7 @@ function SuccessCameraCard({
         },
         camera.still_image.refresh_interval
           ? camera.still_image.refresh_interval * 1000
-          : 10000,
+          : 5000,
       );
       // If element is hidden or browser loses focus, stop updating images
     } else if (updateSnapshot.current) {
