@@ -22,7 +22,6 @@ module.exports = defineConfig([
   {
     plugins: {
       prettier,
-<<<<<<< HEAD
       "@typescript-eslint": tsEslintPlugin,
       "react-hooks": reactHooks,
       "viseron-custom": {
@@ -30,10 +29,6 @@ module.exports = defineConfig([
           "no-direct-dayjs-import": noDayjsImport,
         },
       },
-=======
-      // "@typescript-eslint": tsEslintPlugin,
-      // "react-hooks": reactHooks,
->>>>>>> 057406b7 (Fixed frontend compiling issues)
     },
 
     languageOptions: {
