@@ -71,6 +71,7 @@ class SharedFrame:
         self.camera_identifier = camera_identifier
         self.capture_time = time.time()
         self.reference_count = 0
+        self.timestamps: dict[str, float] = {}
 
     def __enter__(self) -> None:
         """Increase reference count."""

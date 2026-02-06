@@ -1,4 +1,5 @@
 """Camera domain."""
+
 from __future__ import annotations
 
 import logging
@@ -94,6 +95,47 @@ class EventFrameBytesData(EventData):
     json_serializable = False
     camera_identifier: str
     shared_frame: SharedFrame
+
+    def get_performance_stats(self) -> str:
+        """Return performance statistics for the frame.
+
+        Returns a formatted string with timestamps and durations between stages.
+        """
+        if not self.shared_frame.timestamps:
+            return "No performance data available"
+
+        # Sort timestamps by time value
+        sorted_timestamps = sorted(
+            self.shared_frame.timestamps.items(), key=lambda x: x[1]
+        )
+
+        output_lines = [
+            f"Performance stats for frame {self.shared_frame.name}:",
+            f"Capture time: {self.shared_frame.capture_time:.6f}",
+            "",
+        ]
+
+        # Add each timestamp
+        for i, (stage, timestamp) in enumerate(sorted_timestamps):
+            relative_time = (timestamp - self.shared_frame.capture_time) * 1000
+            output_lines.append(
+                f"  [{i}] {stage}: {timestamp:.6f} (+{relative_time:.2f}ms)"
+            )
+
+            # Calculate duration to next stage
+            if i < len(sorted_timestamps) - 1:
+                next_timestamp = sorted_timestamps[i + 1][1]
+                duration = (next_timestamp - timestamp) * 1000
+                output_lines.append(f"      Duration to next stage: {duration:.2f}ms")
+
+        # Total processing time
+        if sorted_timestamps:
+            total_time = (
+                sorted_timestamps[-1][1] - self.shared_frame.capture_time
+            ) * 1000
+            output_lines.append(f"\nTotal processing time: {total_time:.2f}ms")
+
+        return "\n".join(output_lines)
 
 
 @dataclass
@@ -366,9 +408,11 @@ class AbstractCamera(AbstractDomain):
         self._vis.dispatch_event(
             EVENT_CAMERA_STATUS.format(camera_identifier=self.identifier),
             EventCameraStatusData(
-                status=EVENT_CAMERA_STATUS_CONNECTED
-                if connected
-                else EVENT_CAMERA_STATUS_DISCONNECTED
+                status=(
+                    EVENT_CAMERA_STATUS_CONNECTED
+                    if connected
+                    else EVENT_CAMERA_STATUS_DISCONNECTED
+                )
             ),
         )
 

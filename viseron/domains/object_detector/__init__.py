@@ -1,4 +1,5 @@
 """Object detector domain."""
+
 from __future__ import annotations
 
 import logging
@@ -16,7 +17,7 @@ from sqlalchemy import insert
 from viseron.components.nvr.const import EVENT_SCAN_FRAMES, OBJECT_DETECTOR
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import Objects
-from viseron.const import INSERT, VISERON_SIGNAL_SHUTDOWN
+from viseron.const import ENABLE_PERFORMANCE_MONITORING, INSERT, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains import AbstractDomain
 from viseron.domains.camera.const import (
     DOMAIN as CAMERA_DOMAIN,
@@ -527,6 +528,8 @@ class AbstractObjectDetector(AbstractDomain):
 
     def _detect(self, shared_frame: SharedFrame, frame_time: float):
         """Perform object detection and publish data."""
+        if ENABLE_PERFORMANCE_MONITORING:
+            shared_frame.timestamps["darknet_detect_start"] = time.time()
         decoded_frame = self._camera.shared_frames.get_decoded_frame_rgb(shared_frame)
         if self._mask:
             apply_mask(decoded_frame, self._mask_image)
@@ -535,6 +538,8 @@ class AbstractObjectDetector(AbstractDomain):
 
         frame_time = time.time()
         objects = self.return_objects(preprocessed_frame)
+        if ENABLE_PERFORMANCE_MONITORING:
+            shared_frame.timestamps["darknet_detect_end"] = time.time()
         if objects is None:
             return
 

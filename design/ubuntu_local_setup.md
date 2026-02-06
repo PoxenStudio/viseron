@@ -7,6 +7,7 @@
 建议使用 **Ubuntu 22.04 LTS** 或更新版本。
 
 ### 1.1 系统工具与基础库
+
 更新软包列表并安装必要的编译工具和系统库：
 
 ```bash
@@ -55,6 +56,7 @@ sudo apt install -y \
 **说明**: `dlib` 和 `opencv` 的编译安装需要依赖上述大量的图像处理和数学计算库。
 
 ### 1.2 安装 Node.js (用于前端)
+
 推荐安装 Node.js LTS 版本 (v20+)。
 
 ```bash
@@ -63,6 +65,7 @@ sudo apt install -y nodejs
 ```
 
 ### 1.3 安装 Go2RTC
+
 该项目依赖 Go2RTC 处理 WebRTC 流。需要手动下载二进制文件。
 
 ```bash
@@ -76,6 +79,7 @@ chmod +x go2rtc
 ## 2. 后端开发环境搭建
 
 ### 2.1 Python 环境配置
+
 建议使用 Python 虚拟环境，避免污染系统库。
 
 ```bash
@@ -87,6 +91,7 @@ source .venv/bin/activate
 ```
 
 ### 2.2 安装 Python 依赖
+
 **注意**: `dlib` 的编译可能比较耗时且对内存有要求。
 
 ```bash
@@ -101,6 +106,7 @@ pip install -r requirements.txt
 如果遇到 `dlib` 安装失败，请确保 `cmake` 和 `cmake-data` 已正确安装 (`sudo apt install cmake`)。
 
 ### 2.3 配置文件准备
+
 默认情况下，项目读取 `/config` 目录下的配置。我们需要在本地创建配置目录并告知程序。
 
 ```bash
@@ -111,7 +117,6 @@ mkdir -p config
 # 可参考 const.py 中的 DEFAULT_CONFIG
 touch config/config.yaml
 ```
-
 
 **环境变量配置**:
 为了让程序知道配置文件在哪里，需要设置环境变量 `VISERON_CONFIG_DIR`。建议将其写入启动脚本或 `.env` 文件。
@@ -126,6 +131,7 @@ export VISERON_CONFIG_DIR=$(pwd)/config
 
 **1. 启动 PostgreSQL 服务**
 确保 PostgreSQL 服务已启动：
+
 ```bash
 sudo systemctl start postgresql
 sudo systemctl enable postgresql
@@ -133,6 +139,7 @@ sudo systemctl enable postgresql
 
 **2. 创建数据库和用户**
 进入 PostgreSQL 命令行创建项目所需的数据库和用户：
+
 ```bash
 sudo -u postgres psql
 
@@ -153,7 +160,6 @@ export POSTGRES_DATABASE_URL="postgresql://viseron:viseron@localhost:5432/visero
 
 建议将上述 export 命令也加入到你的启动脚本或环境变量配置文件中。
 
-
 ---
 
 ## 3. 前端开发环境搭建
@@ -166,11 +172,11 @@ npm install
 ```
 
 前端有两种运行模式：
+
 1. **开发模式 (Dev)**: 实时热更新，用于开发调试。
 2. **生产构建 (Build)**: 编译成静态文件，由 Nginx 统一向外提供服务。
 
 ---
-
 
 ### 2.5 Darknet 目标检测配置
 
@@ -206,12 +212,13 @@ wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/data/coco.names -
 darknet:
   object_detector:
     model_path: /path/to/your/project/models/darknet/default.weights # 修改为绝对路径
-    model_config: /path/to/your/project/models/darknet/default.cfg   # 修改为绝对路径
-    label_path: /path/to/your/project/models/darknet/coco.names      # 修改为绝对路径
+    model_config: /path/to/your/project/models/darknet/default.cfg # 修改为绝对路径
+    label_path: /path/to/your/project/models/darknet/coco.names # 修改为绝对路径
     # ... 其他配置
 ```
 
 **导出的环境变量**
+
 ```
 export VISERON_CONFIG_DIR=/home/horky/projects/nvr/viseron/workspace/config
 export POSTGRES_DATABASE_URL="postgresql://viseron:viseron@localhost:5432/viseron"
@@ -219,6 +226,7 @@ export VISERON_FFMPEG_PATH=/usr/bin/ffmpeg
 ```
 
 **错误排查**:
+
 1.  **`No section: 'net'`**: 通常是因为 `default.cfg` 文件内容为空、格式损坏或者路径错误，导致 OpenCV 无法解析网络结构。请确保 `wget` 下载成功且文件有内容。
 2.  **`No module named 'manager'`**: 这是一个 Python 路径问题。当 Viseron 启动子进程处理 Darknet 时，需要能够找到项目根目录下的 `manager.py`。
     解决方法：在运行 Viseron 之前，将当前目录 (即项目根目录) 添加到 `PYTHONPATH`。
@@ -228,8 +236,8 @@ export VISERON_FFMPEG_PATH=/usr/bin/ffmpeg
     python3 -m viseron
     ```
 
-
 ### 4.1 端口架构
+
 - **9999**: Viseron 后端 API 服务端口
 - **1984**: Go2RTC 服务端口
 - **8888**: Nginx 统一入口端口 (浏览器访问此端口)
@@ -331,7 +339,6 @@ http {
 
 ---
 
-
 ### 2.6 FFMPEG 路径配置(重要)
 
 Viseron 在运行时会尝试为每个摄像头创建一个指向系统 `ffmpeg` 的符号链接（例如 `ffmpeg_camera1`），默认路径硬编码为 `/home/abc/bin/`（这是 Docker 容器内的路径）。
@@ -358,17 +365,21 @@ export VISERON_FFMPEG_PATH=$(which ffmpeg)
 
 建议将 `export VISERON_FFMPEG_PATH=$(which ffmpeg)` 也加入到启动脚本中。
 
-
 ### 终端 2: 运行 Viseron 后端
+
 确保已激活虚拟环境并设置了环境变量。
+
 ```bash
 source .venv/bin/activate
 export VISERON_CONFIG_DIR=$(pwd)/config
+export PYTHONPATH=$PYTHONPATH:$(pwd)
 python3 -m viseron
 ```
 
 ### 终端 3: 运行 Nginx
+
 使用刚才创建的配置文件启动 Nginx。
+
 ```bash
 # 注意使用 sudo，因为 nginx 需要权限操作日志文件或绑定端口
 # 将路径替换为实际路径
@@ -378,6 +389,7 @@ sudo nginx -c $(pwd)/nginx_dev.conf
 此时，如果你已经执行过前端 build (`cd frontend && npm run build`)，你可以直接访问 `http://localhost:8888` 来使用完整的服务。
 
 ### 终端 4: 运行前端开发服务器 (可选 - 推荐用于前端开发)
+
 如果你正在开发前端，不希望每次修改都 build，可以使用 Vite 开发服务器。
 
 ```bash
@@ -400,6 +412,7 @@ npm run start
 无论哪种情况，都**必须**保持 **终端 1, 2, 3** 的服务处于运行状态。
 
 访问地址:
+
 - **前端开发**: `http://localhost:5173`
 - **完全集成测试**: `http://localhost:8888`
 

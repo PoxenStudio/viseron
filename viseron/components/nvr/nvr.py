@@ -4,6 +4,7 @@ This domain is NOT meant to be subclassed or implemented by other components.
 The reason for using a domain instead of a component is to use the domain dependencies
 built into domain setup.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -21,7 +22,7 @@ from viseron.components.nvr.const import COMPONENT
 from viseron.components.nvr.sensor import OperationStateSensor
 from viseron.components.nvr.toggle import ManualRecordingToggle
 from viseron.components.storage.models import TriggerTypes
-from viseron.const import VISERON_SIGNAL_SHUTDOWN
+from viseron.const import ENABLE_PERFORMANCE_MONITORING, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.motion_detector import AbstractMotionDetectorScanner
 from viseron.domains.motion_detector.const import (
@@ -326,11 +327,11 @@ class NVR(AbstractNVR):
                 self._frame_scanners[MOTION_DETECTOR].scan = True
                 self._frame_scanners[OBJECT_DETECTOR].scan = False
 
-            case _ if (self._object_detector and self._motion_detector):
+            case _ if self._object_detector and self._motion_detector:
                 self._frame_scanners[OBJECT_DETECTOR].scan = True
-                self._frame_scanners[
-                    MOTION_DETECTOR
-                ].scan = self._motion_detector.trigger_event_recording
+                self._frame_scanners[MOTION_DETECTOR].scan = (
+                    self._motion_detector.trigger_event_recording
+                )
 
             case _ if self._object_detector:
                 self._frame_scanners[OBJECT_DETECTOR].scan = True
@@ -855,6 +856,8 @@ class NVR(AbstractNVR):
             self.remove_frame(shared_frame)
             return
 
+        if ENABLE_PERFORMANCE_MONITORING:
+            shared_frame.timestamps["nvr_process_start"] = time.time()
         self.process_frame(shared_frame)
         self.process_recorder(shared_frame)
         self._vis.dispatch_event(
@@ -865,15 +868,22 @@ class NVR(AbstractNVR):
                 frame=self._camera.shared_frames.get_decoded_frame_rgb(
                     shared_frame
                 ).copy(),
-                objects_in_fov=self._object_detector.objects_in_fov
-                if self._object_detector
-                else None,
-                motion_contours=self._motion_detector.motion_contours
-                if self._motion_detector
-                else None,
+                objects_in_fov=(
+                    self._object_detector.objects_in_fov
+                    if self._object_detector
+                    else None
+                ),
+                motion_contours=(
+                    self._motion_detector.motion_contours
+                    if self._motion_detector
+                    else None
+                ),
             ),
             store=False,
         )
+        if ENABLE_PERFORMANCE_MONITORING:
+            shared_frame.timestamps["nvr_process_end"] = time.time()
+            self._logger.info(frame.data.get_performance_stats())
         self.remove_frame(shared_frame)
 
     def unload(self) -> None:

@@ -1,4 +1,5 @@
 """WebSocket API commands."""
+
 from __future__ import annotations
 
 import asyncio
@@ -75,18 +76,15 @@ LOGGER = logging.getLogger(__name__)
 
 
 @overload
-def websocket_command(schema: dict[Any, Any]) -> Callable:
-    ...
+def websocket_command(schema: dict[Any, Any]) -> Callable: ...
 
 
 @overload
-def websocket_command(schema: dict[Any, Any], command: str) -> Callable:
-    ...
+def websocket_command(schema: dict[Any, Any], command: str) -> Callable: ...
 
 
 @overload
-def websocket_command(schema: vol.Schema, command: str) -> Callable:
-    ...
+def websocket_command(schema: vol.Schema, command: str) -> Callable: ...
 
 
 def websocket_command(
@@ -174,6 +172,7 @@ async def subscribe_event(connection: WebSocketHandler, message) -> None:
         """
         await forward_event(event)
 
+    LOGGER.info(f"[WebSocket] Subscribed to event {message['event']}")
     connection.subscriptions[message["command_id"]] = connection.vis.listen_event(
         message["event"],
         debounced_forward_event if message["debounce"] else forward_event,
