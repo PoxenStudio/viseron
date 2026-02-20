@@ -11,6 +11,7 @@ const CameraRecordingsDaily = lazy(
   () => import("pages/recordings/CameraRecordingsDaily"),
 );
 const Configuration = lazy(() => import("pages/Configuration"));
+const ConfigEditor = lazy(() => import("pages/ConfigEditor"));
 const Entities = lazy(() => import("pages/Entities"));
 const Events = lazy(() => import("pages/Events"));
 const Login = lazy(() => import("pages/Login"));
@@ -103,6 +104,10 @@ function App() {
                 {
                   path: "/settings/template-editor",
                   element: <TemplateEditor />,
+                },
+                {
+                  path: "/settings/editor",
+                  element: <ConfigEditor />,
                 },
               ],
             },
