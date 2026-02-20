@@ -14,7 +14,7 @@ import { Loading } from "components/loading/Loading";
 import { useCameras } from "lib/api/cameras";
 import * as types from "lib/types";
 
-import { CameraFormDialog } from "./CameraFormDialog";
+import { CameraPropDialog } from "./CameraPropDialog";
 import { DeleteCameraDialog } from "./DeleteCameraDialog";
 
 function CameraSettings() {
@@ -138,14 +138,14 @@ function CameraSettings() {
       )}
 
       {/* Add dialog */}
-      <CameraFormDialog
+      <CameraPropDialog
         open={addOpen}
         mode="create"
         onClose={() => setAddOpen(false)}
       />
 
       {/* Edit dialog */}
-      <CameraFormDialog
+      <CameraPropDialog
         open={!!editCamera}
         mode="edit"
         camera={editCamera ?? undefined}

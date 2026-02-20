@@ -30,7 +30,7 @@ import * as types from "lib/types";
 
 export type DialogMode = "create" | "edit";
 
-export interface CameraFormDialogProps {
+export interface CameraPropDialogProps {
   open: boolean;
   mode: DialogMode;
   /** Required for edit mode */
@@ -223,12 +223,12 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 // Main Dialog Component
 // ---------------------------------------------------------------------------
 
-export function CameraFormDialog({
+export function CameraPropDialog({
   open,
   mode,
   camera,
   onClose,
-}: CameraFormDialogProps) {
+}: CameraPropDialogProps) {
   const isEdit = mode === "edit";
 
   const tuneQuery = useTuneConfig({
