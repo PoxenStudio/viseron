@@ -53,6 +53,12 @@ class TuneAPIHandler(BaseAPIHandler):
         },
         {
             "requires_role": [Role.ADMIN],
+            "path_pattern": r"/tune",
+            "supported_methods": ["POST"],
+            "method": "create_camera_tune",
+        },
+        {
+            "requires_role": [Role.ADMIN],
             "path_pattern": r"/tune/(?P<camera_identifier>[A-Za-z0-9_]+)",
             "supported_methods": ["GET"],
             "method": "get_camera_tune",
@@ -62,6 +68,12 @@ class TuneAPIHandler(BaseAPIHandler):
             "path_pattern": r"/tune/(?P<camera_identifier>[A-Za-z0-9_]+)",
             "supported_methods": ["PUT"],
             "method": "update_camera_tune",
+        },
+        {
+            "requires_role": [Role.ADMIN],
+            "path_pattern": r"/tune/(?P<camera_identifier>[A-Za-z0-9_]+)",
+            "supported_methods": ["DELETE"],
+            "method": "delete_camera_tune",
         },
     ]
 
@@ -383,5 +395,144 @@ class TuneAPIHandler(BaseAPIHandler):
             self.response_error(
                 status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
                 reason=f"Failed to update configuration: {str(e)}",
+            )
+            return
+
+    async def create_camera_tune(self) -> None:
+        """Create a new camera configuration entry."""
+
+        try:
+            request_data = json.loads(self.request.body)
+        except json.JSONDecodeError as e:
+            self.response_error(
+                status_code=HTTPStatus.BAD_REQUEST,
+                reason=f"Invalid JSON in request body: {str(e)}",
+            )
+            return
+
+        component = request_data.get("component")
+        identifier = request_data.get("identifier")
+        data = request_data.get("data", {})
+
+        if not component or not identifier:
+            self.response_error(
+                status_code=HTTPStatus.BAD_REQUEST,
+                reason="Missing 'component' or 'identifier' in request",
+            )
+            return
+
+        # Validate identifier: only lowercase alphanumeric and underscores
+        import re as _re
+        if not _re.match(r"^[a-z0-9_]+$", identifier):
+            self.response_error(
+                status_code=HTTPStatus.BAD_REQUEST,
+                reason="identifier must contain only lowercase letters, digits and underscores",
+            )
+            return
+
+        def _create_config() -> dict[str, Any]:
+            config = self._load_config()
+
+            if component not in config:
+                self.response_error(
+                    status_code=HTTPStatus.BAD_REQUEST,
+                    reason=f"Component '{component}' not found in config",
+                )
+                return {"success": False}
+
+            if "camera" not in config[component]:
+                config[component]["camera"] = {}
+
+            if identifier in config[component]["camera"]:
+                return {"success": False, "conflict": True}
+
+            config[component]["camera"][identifier] = data
+            self._save_config(config)
+            return {"success": True}
+
+        try:
+            result = await self.run_in_executor(_create_config)
+            if result.get("conflict"):
+                self.response_error(
+                    status_code=HTTPStatus.CONFLICT,
+                    reason=f"Camera '{identifier}' already exists",
+                )
+                return
+            if result["success"]:
+                await self.response_success(
+                    response={"message": f"Camera '{identifier}' created successfully"}
+                )
+            else:
+                self.response_error(
+                    status_code=HTTPStatus.BAD_REQUEST,
+                    reason="Failed to create camera configuration",
+                )
+                return
+        except (OSError, YAMLError) as e:
+            LOGGER.error(f"Error creating camera tune: {e}", exc_info=True)
+            self.response_error(
+                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+                reason=f"Failed to create configuration: {str(e)}",
+            )
+            return
+
+    async def delete_camera_tune(self, camera_identifier: str) -> None:
+        """Delete a camera configuration entry."""
+
+        try:
+            request_data = json.loads(self.request.body) if self.request.body else {}
+        except json.JSONDecodeError:
+            request_data = {}
+
+        component = request_data.get("component") or self.request.arguments.get(
+            "component", [b""]
+        )[0].decode()
+
+        if not component:
+            self.response_error(
+                status_code=HTTPStatus.BAD_REQUEST,
+                reason="Missing 'component' in request body or query parameter",
+            )
+            return
+
+        def _delete_config() -> dict[str, Any]:
+            config = self._load_config()
+
+            if component not in config:
+                return {"success": False, "not_found": True}
+
+            camera_section = config[component].get("camera", {})
+            if camera_identifier not in camera_section:
+                return {"success": False, "not_found": True}
+
+            del camera_section[camera_identifier]
+            self._save_config(config)
+            return {"success": True}
+
+        try:
+            result = await self.run_in_executor(_delete_config)
+            if result.get("not_found"):
+                self.response_error(
+                    status_code=HTTPStatus.NOT_FOUND,
+                    reason=f"Camera '{camera_identifier}' not found",
+                )
+                return
+            if result["success"]:
+                await self.response_success(
+                    response={
+                        "message": f"Camera '{camera_identifier}' deleted successfully"
+                    }
+                )
+            else:
+                self.response_error(
+                    status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+                    reason="Failed to delete camera configuration",
+                )
+                return
+        except (OSError, YAMLError) as e:
+            LOGGER.error(f"Error deleting camera tune: {e}", exc_info=True)
+            self.response_error(
+                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+                reason=f"Failed to delete configuration: {str(e)}",
             )
             return

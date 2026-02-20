@@ -6,6 +6,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 
+import { useToast } from "hooks/UseToast";
 import { viseronAPI } from "lib/api/client";
 
 export interface TuneConfig {
@@ -26,6 +27,17 @@ export interface UpdateTuneConfigPayload {
   data: any;
 }
 
+export interface CreateCameraPayload {
+  component: string;
+  identifier: string;
+  data: Record<string, any>;
+}
+
+export interface DeleteCameraPayload {
+  camera_identifier: string;
+  component: string;
+}
+
 async function getTuneConfig(camera_identifier: string) {
   const response = await viseronAPI.get<TuneConfig>(
     `tune/${camera_identifier}`,
@@ -38,6 +50,18 @@ async function updateTuneConfig(
   payload: UpdateTuneConfigPayload,
 ) {
   const response = await viseronAPI.put(`tune/${camera_identifier}`, payload);
+  return response.data;
+}
+
+async function createCamera(payload: CreateCameraPayload) {
+  const response = await viseronAPI.post(`tune`, payload);
+  return response.data;
+}
+
+async function deleteCamera({ camera_identifier, component }: DeleteCameraPayload) {
+  const response = await viseronAPI.delete(`tune/${camera_identifier}`, {
+    data: { component },
+  });
   return response.data;
 }
 
@@ -65,10 +89,61 @@ export const useUpdateTuneConfig = (
     mutationFn: (payload: UpdateTuneConfigPayload) =>
       updateTuneConfig(camera_identifier, payload),
     onSuccess: () => {
-      // Invalidate and refetch tune config after successful update
       queryClient.invalidateQueries({
         queryKey: ["tune", camera_identifier],
       });
+    },
+    ...mutationOptions,
+  });
+};
+
+export const useCreateCamera = (
+  mutationOptions?: Omit<
+    UseMutationOptions<any, any, CreateCameraPayload>,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: createCamera,
+    onSuccess: (_data, variables) => {
+      toast.success(`Camera '${variables.identifier}' created. Restart Viseron to apply.`);
+      queryClient.invalidateQueries({ queryKey: ["cameras"] });
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.error
+          ? `Failed to create camera: ${error.response.data.error}`
+          : `An error occurred: ${error.message}`,
+      );
+    },
+    ...mutationOptions,
+  });
+};
+
+export const useDeleteCamera = (
+  mutationOptions?: Omit<
+    UseMutationOptions<any, any, DeleteCameraPayload>,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: deleteCamera,
+    onSuccess: (_data, variables) => {
+      toast.success(`Camera '${variables.camera_identifier}' deleted. Restart Viseron to apply.`);
+      queryClient.invalidateQueries({ queryKey: ["cameras"] });
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.error
+          ? `Failed to delete camera: ${error.response.data.error}`
+          : `An error occurred: ${error.message}`,
+      );
     },
     ...mutationOptions,
   });

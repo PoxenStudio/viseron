@@ -30,7 +30,7 @@ function Settings() {
   const settingsMenuItems = [
     {
       name: "Configuration",
-      description: "Edit the YAML configuration",
+      description: "System configuration",
       path: "/settings/configuration",
       icon: <SettingsEdit size={23} />,
       color: "blue",
@@ -74,6 +74,15 @@ function Settings() {
       color: "orange",
       disabled: true,
       disabledReason: "Not implemented yet",
+    },
+    {
+      name: "Configuration Editor",
+      description: "Edit the YAML configuration",
+      path: "/settings/configuration",
+      icon: <SettingsEdit size={23} />,
+      color: "blue",
+      disabled: false,
+      disabledReason: null,
     },
   ];
 
