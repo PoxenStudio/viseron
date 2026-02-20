@@ -12,7 +12,18 @@ COMPONENT: Final = "storage"
 DATABASE_URL = os.getenv(
     "POSTGRES_DATABASE_URL", "postgresql://postgres@localhost/viseron"
 )
-ENGINE = create_engine(DATABASE_URL, connect_args={"options": "-c timezone=UTC"})
+
+# Build connect_args: always set timezone; disable SSL only when sslmode is not
+# already specified in the URL (common for local/dev PostgreSQL without SSL).
+_connect_args: dict[str, Any] = {"options": "-c timezone=UTC"}
+if "sslmode" not in DATABASE_URL:
+    _connect_args["sslmode"] = "disable"
+
+ENGINE = create_engine(
+    DATABASE_URL,
+    connect_args=_connect_args,
+    pool_pre_ping=True,  # Validate connections before use to avoid stale-conn errors
+)
 
 
 class CleanupJobNames(Enum):
