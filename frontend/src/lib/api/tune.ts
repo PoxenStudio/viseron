@@ -16,7 +16,7 @@ export interface TuneConfig {
 type TuneVariables = {
   camera_identifier: string;
   configOptions?: Omit<
-    UseQueryOptions<TuneConfig, Error>,
+    UseQueryOptions<TuneConfig | null, Error>,
     "queryKey" | "queryFn"
   >;
 };
@@ -38,11 +38,19 @@ export interface DeleteCameraPayload {
   component: string;
 }
 
-async function getTuneConfig(camera_identifier: string) {
-  const response = await viseronAPI.get<TuneConfig>(
-    `tune/${camera_identifier}`,
-  );
-  return response.data;
+async function getTuneConfig(camera_identifier: string): Promise<TuneConfig | null> {
+  try {
+    const response = await viseronAPI.get<TuneConfig>(
+      `tune/${camera_identifier}`,
+    );
+    return response.data;
+  } catch (error: any) {
+    // 404 means no tune config exists yet — that is normal, not an error
+    if (error?.response?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 async function updateTuneConfig(
@@ -69,7 +77,7 @@ export const useTuneConfig = ({
   camera_identifier,
   configOptions,
 }: TuneVariables) =>
-  useQuery({
+  useQuery<TuneConfig | null, Error>({
     queryKey: ["tune", camera_identifier],
     queryFn: () => getTuneConfig(camera_identifier),
     enabled: !!camera_identifier,

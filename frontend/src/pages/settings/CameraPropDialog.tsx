@@ -5,6 +5,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
+import Alert from "@mui/material/Alert";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
@@ -19,7 +20,7 @@ import Select from "@mui/material/Select";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { useTuneConfig, useCreateCamera, useUpdateTuneConfig } from "lib/api/tune";
 import * as types from "lib/types";
@@ -101,7 +102,18 @@ const DEFAULT_FORM: CameraFormValues = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function tuneDataToForm(tuneData: Record<string, any>): Partial<CameraFormValues> {
+function cameraToForm(camera: types.Camera | undefined): Partial<CameraFormValues> {
+  if (!camera) return {};
+  // Extract basic info from camera object (identifier is read-only in edit mode)
+  return {
+    name: camera.name || "",
+    width: camera.width ? String(camera.width) : "",
+    height: camera.height ? String(camera.height) : "",
+  };
+}
+
+function tuneDataToForm(tuneData: Record<string, any> | null): Partial<CameraFormValues> {
+  if (!tuneData) return {};
   // tuneData comes from GET /tune/{id} and looks like:
   // { camera: { ffmpeg: { host, port, path, name, ... } } }
   const camSection = tuneData?.camera ?? {};
@@ -251,38 +263,49 @@ export function CameraPropDialog({
     onSuccess: () => onClose(),
   });
 
-  const [values, setValues] = useState<CameraFormValues>(DEFAULT_FORM);
+  // Only user-initiated edits are stored in state.
+  // The effective form values are derived by layering: defaults → tune data → user edits.
+  // This avoids setState-in-effect anti-pattern for syncing server data into form state.
+  const [userEdits, setUserEdits] = useState<Partial<CameraFormValues>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
-  // Pre-fill for edit
-  useEffect(() => {
-    if (isEdit && tuneQuery.data) {
-      const apply = () => {
-        setValues((prev) => ({ ...prev, ...tuneDataToForm(tuneQuery.data!) }));
-        setErrors({});
-        setTouched({});
-      };
-      apply();
-    }
-  }, [isEdit, tuneQuery.data]);
+  // Reset user edits and validation state when the dialog transitions from closed → open.
+  // Using a ref + conditional setState during render is the React-recommended alternative
+  // to useEffect for deriving / resetting state when props change.
+  // See: https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const prevOpenRef = useRef(false);
+  if (open && !prevOpenRef.current) {
+    prevOpenRef.current = true;
+    setUserEdits({});
+    setErrors({});
+    setTouched({});
+  } else if (!open && prevOpenRef.current) {
+    prevOpenRef.current = false;
+  }
 
-  // Reset on open
-  useEffect(() => {
-    if (open && mode === "create") {
-      const reset = () => {
-        setValues(DEFAULT_FORM);
-        setErrors({});
-        setTouched({});
-      };
-      reset();
+  const values = useMemo<CameraFormValues>(() => {
+    // Layer 1: Start with defaults
+    let base: CameraFormValues = { ...DEFAULT_FORM };
+
+    // Layer 2: In edit mode, apply camera's basic info (name, width, height)
+    if (isEdit && camera) {
+      base = { ...base, ...cameraToForm(camera) };
     }
-  }, [open, mode]);
+
+    // Layer 3: If tune config exists, it overrides everything (most authoritative)
+    if (isEdit && tuneQuery.data) {
+      base = { ...base, ...tuneDataToForm(tuneQuery.data) };
+    }
+
+    // Layer 4: User edits override all
+    return { ...base, ...userEdits };
+  }, [isEdit, camera, tuneQuery.data, userEdits]);
 
   function set(field: keyof CameraFormValues, value: any) {
-    setValues((prev) => {
+    setUserEdits((prev) => {
       const next = { ...prev, [field]: value };
-      // When stream_format changes, update default port
+      // When stream_format changes, also reset the format-dependent defaults
       if (field === "stream_format") {
         const defaults = STREAM_FORMAT_DEFAULTS[value as StreamFormat] ?? {};
         return { ...next, ...defaults };
@@ -340,12 +363,19 @@ export function CameraPropDialog({
       </DialogTitle>
 
       <DialogContent dividers>
-        {isEdit && tuneQuery.isPending ? (
+        {isEdit && tuneQuery.isPending && !tuneQuery.isError ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
             <CircularProgress />
           </Box>
         ) : (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {/* Warn only for genuine fetch errors (not 404, which is handled as "no config") */}
+            {isEdit && tuneQuery.isError && (
+              <Alert severity="warning">
+                Could not load existing settings — showing defaults. Saving will
+                overwrite the current configuration.
+              </Alert>
+            )}
             {/* ── Identity ──────────────────────────────────── */}
             <SectionTitle>Identity</SectionTitle>
 

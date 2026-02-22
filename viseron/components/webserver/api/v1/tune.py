@@ -292,6 +292,12 @@ class TuneAPIHandler(BaseAPIHandler):
             config = self._load_config()
             tune_settings = self._transform_to_tune_structure(config, camera_identifier)
             camera_settings = tune_settings.get(camera_identifier, {})
+            LOGGER.debug(
+                f"get_camera_tune '{camera_identifier}': "
+                f"top-level config keys={list(config.keys())}, "
+                f"tune_settings keys={list(tune_settings.keys())}, "
+                f"camera_settings empty={not camera_settings}"
+            )
             return self._sanitize_yaml_objects(camera_settings)
 
         camera_tune_settings = await self.run_in_executor(_load_and_transform)

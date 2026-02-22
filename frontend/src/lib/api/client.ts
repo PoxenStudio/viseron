@@ -30,6 +30,12 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       staleTime: 1000 * 60 * 1,
       gcTime: 1000 * 60 * 5,
+      // Do not retry client errors (4xx) — they won't fix themselves on retry
+      retry: (failureCount, error: any) => {
+        const status = error?.response?.status;
+        if (status !== undefined && status >= 400 && status < 500) return false;
+        return failureCount < 3;
+      },
       queryFn: async ({ queryKey: [url] }) => {
         if (typeof url === "string") {
           const response = await viseronAPI.get(`${url.toLowerCase()}`);
